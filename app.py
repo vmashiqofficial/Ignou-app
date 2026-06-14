@@ -101,7 +101,6 @@ def upload_file():
         # ==========================================
         # BUILD FILE 1: LANDSCAPE ATTENDANCE PDF (MAX ROWS COMPACT LAYOUT)
         # ==========================================
-        # Reduced topMargin and bottomMargin to 15pt to free vertical paper layout space
         atten_doc = SimpleDocTemplate(
             attendance_path, 
             pagesize=landscape(letter),
@@ -117,8 +116,8 @@ def upload_file():
             course_df = df[df['Course'] == course].copy()
             
             title_text = f"<b>{tee_title} - Attendance Sheet</b><br/>Course: {course} &nbsp;&nbsp;|&nbsp;&nbsp; Date: {raw_date} &nbsp;&nbsp;|&nbsp;&nbsp; Session: {raw_session}"
-            atten_story.append(Paragraph(title_text, styles['Heading3'])) # Slightly smaller title header space
-            atten_story.append(Spacer(1, 8)) # Smaller heading gap spacer
+            atten_story.append(Paragraph(title_text, styles['Heading3']))
+            atten_story.append(Spacer(1, 8))
 
             table_data = [[
                 Paragraph("<b>SNo</b>", header_style),
@@ -160,8 +159,8 @@ def upload_file():
                 ('ALIGN', (0,0), (-1,-1), 'LEFT'),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-                ('TOPPADDING', (0,0), (-1,-1), 2),    # Tightened cell padding down to 2pt to squeeze maximum rows
-                ('BOTTOMPADDING', (0,0), (-1,-1), 2), # Tightened cell padding down to 2pt to squeeze maximum rows
+                ('TOPPADDING', (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
             ]))
             atten_story.append(t)
 
@@ -246,12 +245,17 @@ def upload_file():
                     val2 = abs_list[idx2] if idx2 < len(abs_list) else ""
                     val3 = abs_list[idx3] if idx3 < len(abs_list) else ""
                     
+                    # Core Math Fix: Keeps counting continuous relative to column lines
+                    sl_col1 = r + 1   # 1 to 20
+                    sl_col2 = r + 21  # 21 to 40
+                    sl_col3 = r + 41  # 41 to 60
+                    
                     abs_table_data.append([
-                        Paragraph(str(idx1 + 1), abs_cell_center),
+                        Paragraph(str(sl_col1), abs_cell_center),
                         Paragraph(val1, abs_cell_center),
-                        Paragraph(str(idx2 + 21), abs_cell_center),
+                        Paragraph(str(sl_col2), abs_cell_center),
                         Paragraph(val2, abs_cell_center),
-                        Paragraph(str(idx3 + 41), abs_cell_center),
+                        Paragraph(str(sl_col3), abs_cell_center),
                         Paragraph(val3, abs_cell_center)
                     ])
 
@@ -313,6 +317,5 @@ def download_file(filename):
     return abort(404, description="Target document file layer was not found.")
 
 if __name__ == '__main__':
-    # Cloud platforms pass an environment variable named 'PORT'
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 7860))
     app.run(host='0.0.0.0', port=port)
