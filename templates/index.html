@@ -2,23 +2,318 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IGNOU PDF Generator</title>
     <style>
-        body { font-family: sans-serif; background: #f4f6f9; text-align: center; padding: 50px; }
-        .card { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input[type="file"] { margin: 20px 0; display: block; width: 100%; }
-        button { background: #1e3a8a; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #2563eb; }
+        :root {
+            color-scheme: light;
+            --bg: #f3f7ff;
+            --card: #ffffff;
+            --text: #111827;
+            --muted: #64748b;
+            --border: #dbe4f0;
+            --primary: #1d4ed8;
+            --primary-dark: #1e3a8a;
+            --success: #166534;
+            --success-bg: #ecfdf3;
+            --error: #b91c1c;
+            --error-bg: #fef2f2;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Inter, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #eef4ff 0%, var(--bg) 100%);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .page {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .card {
+            width: min(100%, 620px);
+            background: var(--card);
+            border-radius: 24px;
+            padding: clamp(20px, 4vw, 36px);
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+            border: 1px solid rgba(219, 228, 240, 0.7);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: #e8f0ff;
+            color: var(--primary-dark);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin-bottom: 14px;
+        }
+
+        h1 {
+            font-size: clamp(1.4rem, 2.5vw, 2rem);
+            margin: 0 0 10px;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin: 0 0 24px;
+            line-height: 1.6;
+        }
+
+        .upload-form {
+            display: grid;
+            gap: 14px;
+        }
+
+        .file-drop {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 24px;
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            background: #f8fbff;
+            cursor: pointer;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+            text-align: center;
+        }
+
+        .file-drop:hover {
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .file-drop input {
+            display: none;
+        }
+
+        .file-title {
+            font-weight: 700;
+            color: var(--primary-dark);
+        }
+
+        .file-subtitle {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .file-name {
+            color: var(--muted);
+            font-size: 0.95rem;
+            min-height: 1.2em;
+        }
+
+        .submit-btn {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            padding: 13px 18px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+            box-shadow: 0 10px 20px rgba(29, 78, 216, 0.24);
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: wait;
+            transform: none;
+        }
+
+        .btn-spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .submit-btn.loading .btn-spinner {
+            display: inline-block;
+        }
+
+        .loading-state {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--primary-dark);
+            font-weight: 600;
+            background: #eff6ff;
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+
+        .loading-state.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(29, 78, 216, 0.25);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .status-message {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+
+        .status-message.success {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .status-message.error {
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        .downloads {
+            margin-top: 18px;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+
+        .downloads h2 {
+            margin: 0 0 10px;
+            font-size: 1rem;
+        }
+
+        .downloads a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 8px 0 0;
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .downloads a:hover {
+            text-decoration: underline;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 600px) {
+            .page {
+                padding: 0;
+            }
+
+            .card {
+                width: 100%;
+                min-height: 100vh;
+                border-radius: 0;
+                padding: 20px;
+            }
+
+            .submit-btn {
+                width: 100%;
+            }
+
+            .downloads a {
+                display: block;
+                margin: 8px 0 0;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>IGNOU Attendance & Absentee Sheet Generator</h2>
-        <p>Upload your master input Excel (.xlsx) or CSV file below:</p>
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".xlsx,.xls,.csv" required>
-            <button type="submit">Process and Generate PDFs</button>
-        </form>
-    </div>
+    <main class="page">
+        <section class="card">
+            <div class="badge">IGNOU PDF Toolkit</div>
+            <h1>Attendance and absentee sheets, ready in minutes</h1>
+            <p class="subtitle">Upload a master Excel or CSV file to generate polished attendance and absentee PDFs with a smoother, mobile-friendly workflow.</p>
+
+            <form id="upload-form" class="upload-form" action="/upload" method="post" enctype="multipart/form-data" novalidate>
+                <label class="file-drop" for="file">
+                    <span class="file-title">Choose your file</span>
+                    <span class="file-subtitle">Accepted formats: .xlsx, .xls, .csv</span>
+                    <input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" required>
+                </label>
+                <div class="file-name" id="file-name">No file selected</div>
+
+                <button id="submit-btn" class="submit-btn" type="submit">
+                    <span class="btn-label">Process and generate PDFs</span>
+                    <span class="btn-spinner" aria-hidden="true"></span>
+                </button>
+
+                <div id="loading-state" class="loading-state" aria-live="polite">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <span>Preparing your PDFs...</span>
+                </div>
+            </form>
+
+            {% if message %}
+            <div class="status-message {{ message_type }}" role="status" aria-live="polite">
+                {{ message }}
+            </div>
+            {% endif %}
+
+            {% if downloads %}
+            <div class="downloads">
+                <h2>Downloads ready</h2>
+                {% for item in downloads %}
+                <a href="{{ url_for('download_file', filename=item.filename) }}" target="_blank">📄 {{ item.label }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <script>
+        const form = document.getElementById('upload-form');
+        const input = document.getElementById('file');
+        const fileName = document.getElementById('file-name');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingState = document.getElementById('loading-state');
+
+        if (input) {
+            input.addEventListener('change', () => {
+                const selected = input.files && input.files[0] ? input.files[0].name : 'No file selected';
+                fileName.textContent = selected;
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', () => {
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+                loadingState.classList.add('show');
+            });
+        }
+    </script>
 </body>
 </html>

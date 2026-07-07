@@ -54,21 +54,24 @@ def get_session_abbreviation(session_val):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', message=None, message_type='info', downloads=None)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
-        return "No file uploaded.", 400
+        return render_template('index.html', message='No file was uploaded. Please choose a file and try again.', message_type='error', downloads=None)
+
     file = request.files['file']
     if file.filename == '':
-        return "No selected file.", 400
+        return render_template('index.html', message='No file was selected. Please choose a valid Excel or CSV file.', message_type='error', downloads=None)
 
-    if file:
+    if not file:
+        return render_template('index.html', message='The uploaded file could not be read. Please try again.', message_type='error', downloads=None)
+
+    try:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
 
-        # Handle sheet formatting types
         if file.filename.endswith('.csv'):
             df = pd.read_csv(file_path)
         else:
@@ -76,9 +79,8 @@ def upload_file():
 
         df.columns = df.columns.str.strip()
         if df.empty:
-            return "The uploaded file contains no data.", 400
+            return render_template('index.html', message='The uploaded file contains no data. Please choose a file with records.', message_type='error', downloads=None)
 
-        # Extract top row cell metadata values safely
         sample_row = df.iloc[0]
         raw_date = sample_row.get('ExDate', 'UNKNOWN')
         raw_session = sample_row.get('Session', 'UNKNOWN')
@@ -88,7 +90,6 @@ def upload_file():
         session_abbr = get_session_abbreviation(raw_session)
         tee_title = parse_exam_session_string(raw_exam_session)
 
-        # Dynamic Output Naming Strings
         attendance_filename = f"ATTENDANCE {formatted_date} {session_abbr}.pdf"
         absentee_filename = f"ABSENTEE {formatted_date} {session_abbr}.pdf"
 
@@ -98,11 +99,8 @@ def upload_file():
         df['Course'] = df['Course'].astype(str).str.strip()
         unique_courses = sorted(df['Course'].unique())
 
-        # ==========================================
-        # BUILD FILE 1: LANDSCAPE ATTENDANCE PDF (MAX ROWS COMPACT LAYOUT)
-        # ==========================================
         atten_doc = SimpleDocTemplate(
-            attendance_path, 
+            attendance_path,
             pagesize=landscape(letter),
             rightMargin=25, leftMargin=25, topMargin=15, bottomMargin=15
         )
@@ -114,7 +112,7 @@ def upload_file():
 
         for i, course in enumerate(unique_courses):
             course_df = df[df['Course'] == course].copy()
-            
+
             title_text = f"<b>{tee_title} - Attendance Sheet</b><br/>Course: {course} &nbsp;&nbsp;|&nbsp;&nbsp; Date: {raw_date} &nbsp;&nbsp;|&nbsp;&nbsp; Session: {raw_session}"
             atten_story.append(Paragraph(title_text, styles['Heading3']))
             atten_story.append(Spacer(1, 8))
@@ -169,37 +167,32 @@ def upload_file():
 
         atten_doc.build(atten_story)
 
-        # ==========================================
-        # BUILD FILE 2: PORTRAIT ABSENTEE PDF
-        # ==========================================
         abs_doc = SimpleDocTemplate(
-            absentee_path, 
+            absentee_path,
             pagesize=letter,
             rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
         )
         abs_story = []
-        
+
         title_style = ParagraphStyle('AbsTitle', fontName='Helvetica-Bold', fontSize=14, leading=16, alignment=1)
         meta_label_style = ParagraphStyle('AbsMetaLabel', fontName='Helvetica-Bold', fontSize=10, leading=13)
         meta_value_style = ParagraphStyle('AbsMetaVal', fontName='Helvetica', fontSize=10, leading=15)
-        
+
         abs_header_style = ParagraphStyle('AbsHdr', fontName='Helvetica-Bold', fontSize=9, leading=11, alignment=1)
         abs_cell_center = ParagraphStyle('AbsCellC', fontName='Helvetica', fontSize=9, leading=12, alignment=1)
         nil_style = ParagraphStyle('AbsNil', fontName='Helvetica-Bold', fontSize=48, leading=56, alignment=1, textColor=colors.black)
 
         for i, course in enumerate(unique_courses):
             course_df = df[df['Course'] == course]
-            
+
             absent_df = course_df[course_df['Attendance'].astype(str).str.upper() == 'ABSENT']
             absent_count = len(absent_df)
 
-            # 1. Official Institutional Main Title Header
             abs_story.append(Paragraph(f"<b>INDIRA GANDHI NATIONAL OPEN UNIVERSITY</b>", title_style))
             abs_story.append(Paragraph(f"<b>MAIDAN GARHI, NEW DELHI – 110068</b>", title_style))
             abs_story.append(Paragraph(f"<b>STUDENT ABSENTEES STATEMENT</b>", title_style))
             abs_story.append(Spacer(1, 15))
 
-            # 2. Structural Metadata Information Grid Box
             meta_table_data = [
                 [
                     Paragraph("<b>Exam:</b>", meta_label_style), Paragraph(str(tee_title), meta_value_style),
@@ -218,7 +211,6 @@ def upload_file():
             abs_story.append(meta_table)
             abs_story.append(Spacer(1, 15))
 
-            # 3. Conditional Content Output Branching Strategy
             if absent_count == 0:
                 abs_story.append(Spacer(1, 40))
                 abs_story.append(Paragraph("NIL", nil_style))
@@ -235,21 +227,20 @@ def upload_file():
 
                 rows_needed = 20
                 abs_list = list(absent_df['Enrno'].dropna().astype(str))
-                
+
                 for r in range(rows_needed):
                     idx1 = r
                     idx2 = r + 20
                     idx3 = r + 40
-                    
+
                     val1 = abs_list[idx1] if idx1 < len(abs_list) else ""
                     val2 = abs_list[idx2] if idx2 < len(abs_list) else ""
                     val3 = abs_list[idx3] if idx3 < len(abs_list) else ""
-                    
-                    # Core Math Fix: Keeps counting continuous relative to column lines
-                    sl_col1 = r + 1   # 1 to 20
-                    sl_col2 = r + 21  # 21 to 40
-                    sl_col3 = r + 41  # 41 to 60
-                    
+
+                    sl_col1 = r + 1
+                    sl_col2 = r + 21
+                    sl_col3 = r + 41
+
                     abs_table_data.append([
                         Paragraph(str(sl_col1), abs_cell_center),
                         Paragraph(val1, abs_cell_center),
@@ -270,7 +261,6 @@ def upload_file():
                 abs_story.append(t_abs)
                 abs_story.append(Spacer(1, 20))
 
-            # 4. Signatures and Official Seals block
             sig_text = """
             <br/><br/>
             <b>Signature of the Centre Superintendent</b><br/><br/>
@@ -285,29 +275,23 @@ def upload_file():
 
         abs_doc.build(abs_story)
 
-        return f"""
-        <html>
-        <head><title>Processing Completed</title>
-        <style>
-            body {{ font-family: sans-serif; background-color: #f4f6f9; padding: 40px; text-align: center; }}
-            .box {{ max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }}
-            a {{ display: inline-block; margin: 10px 0; color: #2563eb; font-weight: bold; text-decoration: none; }}
-            a:hover {{ text-decoration: underline; }}
-            .back-btn {{ margin-top: 20px; background: #64748b; color: white; padding: 10px; border-radius: 4px; display: block; text-decoration: none; }}
-        </style>
-        </head>
-        <body>
-            <div class="box">
-                <h2>Files Generated Successfully!</h2>
-                <p>The system has split the records for {len(unique_courses)} distinct course sheets.</p>
-                <hr style="border:0; border-top:1px solid #eee; margin:20px 0;"/>
-                <a href="/download/{attendance_filename}" target="_blank">📥 Download Landscape Attendance PDF</a><br/>
-                <a href="/download/{absentee_filename}" target="_blank">📥 Download Portrait Absentee PDF</a>
-                <a href="/" class="back-btn">Go Back</a>
-            </div>
-        </body>
-        </html>
-        """
+        downloads = [
+            {'label': 'Download attendance PDF', 'filename': attendance_filename},
+            {'label': 'Download absentee PDF', 'filename': absentee_filename},
+        ]
+        return render_template(
+            'index.html',
+            message=f'Files generated successfully for {len(unique_courses)} course sheet(s).',
+            message_type='success',
+            downloads=downloads,
+        )
+    except Exception as exc:
+        return render_template(
+            'index.html',
+            message=f'We could not process the file. {exc}',
+            message_type='error',
+            downloads=None,
+        )
 
 @app.route('/download/<filename>')
 def download_file(filename):
